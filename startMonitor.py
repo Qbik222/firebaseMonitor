@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, filedialog
 import firebase_admin
 from firebase_admin import credentials, db
 import threading
@@ -7,11 +7,13 @@ import time
 import re
 import pyperclip
 from datetime import datetime, timedelta
+import os
+import json
+import sys
 
 # Глобальні змінні
 json_file = ""
 firebase_url = ""
-audio_save_path = ""
 last_button = None
 last_frequency = None
 data_thread = None
@@ -24,21 +26,43 @@ root = None
 log_window = None
 log_text = None
 show_log = False
+settings_window = None
 
 def read_config():
-    global json_file, firebase_url, audio_save_path
+    global json_file, firebase_url
     try:
-        with open('config.txt', 'r') as config_file:
-            lines = config_file.readlines()
-            for line in lines:
-                if line.startswith('json_file_path='):
-                    json_file = line.strip().split('=')[1]
-                elif line.startswith('audio_save_path='):
-                    audio_save_path = line.strip().split('=')[1]
-                elif line.startswith('firebase_url='):
-                    firebase_url = line.strip().split('=')[1]
+        if not os.path.exists('config.json'):
+            show_settings_window()
+            return False
+
+        with open('config.json', 'r') as config_file:
+            config_data = json.load(config_file)
+            json_file = config_data.get('json_file_path', "")
+            firebase_url = config_data.get('firebase_url', "")
+
+            if not all([json_file, firebase_url]):
+                show_settings_window()
+                return False
+
+        return True
     except Exception as e:
         messagebox.showerror("Помилка", f"Помилка при читанні конфігураційного файлу: {e}")
+        show_settings_window()
+        return False
+
+def save_config():
+    config_data = {
+        'json_file_path': json_file,
+        'firebase_url': firebase_url
+    }
+    try:
+        with open('config.json', 'w') as config_file:
+            json.dump(config_data, config_file, indent=4)
+        log_message("Конфігурацію збережено")
+        return True
+    except Exception as e:
+        messagebox.showerror("Помилка", f"Помилка при збереженні конфігурації: {e}")
+        return False
 
 def authenticate_with_firebase():
     global firebase_app
@@ -70,16 +94,16 @@ def load_data_from_firebase():
 def log_message(message, level="INFO"):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     log_line = f"[{timestamp}] [{level}] {message}\n"
-
-    # Вивід у консоль
     print(log_line, end='')
 
-    # Вивід у вікно логу, якщо воно відкрите
-    if log_text and log_text.winfo_exists():
-        log_text.config(state='normal')
-        log_text.insert('end', log_line)
-        log_text.see('end')
-        log_text.config(state='disabled')
+    try:
+        if log_text and log_text.winfo_exists():
+            log_text.config(state='normal')
+            log_text.insert('end', log_line)
+            log_text.see('end')
+            log_text.config(state='disabled')
+    except tk.TclError:
+        pass  # Ігноруємо помилки, пов'язані з закритим вікном
 
 def toggle_log_window():
     global show_log, log_window, log_text
@@ -94,16 +118,112 @@ def toggle_log_window():
         log_window.title("Лог змін частот")
         log_window.geometry("800x500")
 
-        # Кнопка закриття
         close_btn = tk.Button(log_window, text="Закрити лог", command=toggle_log_window)
         close_btn.pack(pady=5)
 
-        # Текстове поле для логу
         log_text = scrolledtext.ScrolledText(log_window, wrap=tk.WORD, state='disabled')
         log_text.pack(expand=True, fill='both', padx=5, pady=5)
 
-        # Захист від закриття через хрестик
         log_window.protocol("WM_DELETE_WINDOW", toggle_log_window)
+
+def show_settings_window():
+    global settings_window, json_file, firebase_url
+
+    def browse_json_file():
+        filename = filedialog.askopenfilename(
+            title="Виберіть JSON файл з ключами Firebase",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        if filename:
+            json_file_entry.delete(0, tk.END)
+            json_file_entry.insert(0, filename)
+
+    def save_settings():
+        global json_file, firebase_url
+        json_file = json_file_entry.get()
+        firebase_url = firebase_url_entry.get()
+
+        if not firebase_url.startswith("https://") or not firebase_url.endswith(".firebaseio.com/"):
+            messagebox.showerror("Помилка", "Будь ласка, введіть коректний URL Firebase у форматі:\nhttps://ваш-проект.firebaseio.com/")
+            return
+
+        if not os.path.exists(json_file):
+            messagebox.showerror("Помилка", "Вказаний JSON файл не існує")
+            return
+
+        if save_config():
+            settings_window.destroy()
+            messagebox.showinfo("Успіх", "Налаштування збережено успішно!")
+
+    settings_window = tk.Toplevel(root)
+    settings_window.title("Налаштування підключення")
+    settings_window.geometry("500x300")
+    settings_window.resizable(False, False)
+
+    # Заголовок
+    tk.Label(
+        settings_window,
+        text="Налаштування підключення до Firebase",
+        font=('Arial', 12, 'bold')
+    ).pack(pady=(10, 20))
+
+    # JSON файл
+    tk.Label(settings_window, text="JSON файл з ключами Firebase:").pack(anchor='w', padx=20)
+    json_file_frame = tk.Frame(settings_window)
+    json_file_frame.pack(fill='x', padx=20, pady=5)
+    json_file_entry = tk.Entry(json_file_frame)
+    json_file_entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
+    json_file_entry.insert(0, json_file)
+    tk.Button(
+        json_file_frame,
+        text="Огляд...",
+        command=browse_json_file,
+        width=10
+    ).pack(side='right')
+
+    # Firebase URL
+    tk.Label(settings_window, text="URL бази даних Firebase:").pack(anchor='w', padx=20)
+    firebase_url_entry = tk.Entry(settings_window)
+    firebase_url_entry.pack(fill='x', padx=20, pady=5)
+    firebase_url_entry.insert(0, firebase_url)
+    tk.Label(
+        settings_window,
+        text="Формат: https://ваш-проект.firebaseio.com/",
+        font=('Arial', 8),
+        fg='gray'
+    ).pack(anchor='w', padx=20)
+
+    # Кнопки
+    buttons_frame = tk.Frame(settings_window)
+    buttons_frame.pack(pady=20)
+
+    tk.Button(
+        buttons_frame,
+        text="Зберегти",
+        command=save_settings,
+        bg="#4CAF50",
+        fg="black",
+        padx=20
+    ).pack(side='left', padx=10)
+
+    tk.Button(
+        buttons_frame,
+        text="Скасувати",
+        command=settings_window.destroy,
+        bg="#f44336",
+        fg="black",
+        padx=20
+    ).pack(side='right', padx=10)
+
+    # Центрування
+    settings_window.update_idletasks()
+    width = settings_window.winfo_width()
+    height = settings_window.winfo_height()
+    x = (settings_window.winfo_screenwidth() // 2) - (width // 2)
+    y = (settings_window.winfo_screenheight() // 2) - (height // 2)
+    settings_window.geometry(f'{width}x{height}+{x}+{y}')
+
+    settings_window.grab_set()
 
 def on_flag_button_click(i):
     global last_button, last_frequency
@@ -111,17 +231,16 @@ def on_flag_button_click(i):
         last_button.config(bg="SystemButtonFace")
     last_button = flag_buttons[i]
     flag_buttons[i].config(bg="yellow")
-    print(f"Кнопка {i+1} була натиснута.")
+
     button_data = flag_buttons[i].cget('text')
     frequency_match = re.search(r'(\d+\.\d+)', button_data)
     if frequency_match:
         current_frequency = frequency_match.group(1)
         pyperclip.copy(current_frequency)
         timestamp = datetime.now().strftime('%H:%M:%S')
-        message = f"[{timestamp}] Частота {current_frequency} скопійована до буферу обміну"
-        print(message)
-        log_message(message)  # Додано логування копіювання частоти
-        status_label = tk.Label(root, text=message, fg="green", font=('Arial', 14))
+        message = f"[{timestamp}] Частота {current_frequency} скопійована"
+        log_message(message)
+        status_label = tk.Label(root, text=message, fg="green", font=('Arial', 12))
         status_label.pack(pady=5)
         root.after(3000, status_label.destroy)
 
@@ -142,8 +261,7 @@ def update_data_display(root, data):
         freq_value = value.get('value', value.get('name', ''))
         if freq_value and freq_value not in unique_entries:
             unique_entries[freq_value] = value
-            # Логуємо нову частоту
-            log_message(f"Нова частота в базі: {freq_value}")
+            log_message(f"Нова частота: {freq_value}")
 
     sorted_entries = sorted(unique_entries.values(),
                           key=lambda x: x.get('timestamp', 0),
@@ -154,38 +272,36 @@ def update_data_display(root, data):
     for index in range(len(flag_buttons)):
         if index < len(latest_entries):
             entry = latest_entries[index]
-            timestamp = entry.get('timestamp', 'Немає timestamp')
-            value = entry.get('value', entry.get('name', 'Немає значення'))
+            timestamp = entry.get('timestamp', '')
+            value = entry.get('value', entry.get('name', ''))
 
             if isinstance(timestamp, (int, float)):
                 try:
                     timestamp_str = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
                 except:
-                    timestamp_str = "Невірний timestamp"
+                    timestamp_str = ""
             else:
                 timestamp_str = str(timestamp)
 
-            new_button_text = f"{value} - {timestamp_str}"
+            new_button_text = f"{value} - {timestamp_str}" if timestamp_str else str(value)
 
             if index < len(current_buttons_data) and current_buttons_data[index] != new_button_text:
                 old_value = current_buttons_data[index].split(' - ')[0] if current_buttons_data[index] else None
 
-                # Логуємо зміну частоти
-                if old_value and old_value != "Немає значення":
-                    log_message(f"Частота змінилась: {old_value} -> {value}")
+                if old_value and old_value != "":
+                    log_message(f"Зміна частоти: {old_value} -> {value}")
 
                 flag_buttons[index].config(text=new_button_text, state="normal")
 
-                if last_frequency != value and value != "Немає значення":
+                if last_frequency != value and value != "":
                     flag_buttons[index].config(bg="lightgreen")
                     last_frequency = value
                 else:
                     flag_buttons[index].config(bg="SystemButtonFace")
         else:
-            # Логуємо видалення частоти
             old_value = current_buttons_data[index].split(' - ')[0] if index < len(current_buttons_data) and current_buttons_data[index] else None
-            if old_value and old_value != "Немає значення":
-                log_message(f"Частота видалена: {old_value}")
+            if old_value and old_value != "":
+                log_message(f"Видалено частоту: {old_value}")
 
             flag_buttons[index].config(text="", state="disabled", bg="SystemButtonFace")
 
@@ -197,15 +313,18 @@ def refresh_data():
 
     while monitoring_event.is_set():
         try:
-            log_message(f"Перевірка оновлень... Наступна перевірка через 5 сек")
+            log_message("Перевірка оновлень...")
             current_data = load_data_from_firebase()
 
             if current_data and current_data != last_data:
-                root.after(0, lambda: update_data_display(root, current_data))
+                try:
+                    root.after(0, lambda: update_data_display(root, current_data))
+                except tk.TclError:
+                    break  # Вихід, якщо головне вікно закрите
                 last_data = current_data
 
             if datetime.now() >= next_restart_time:
-                log_message("Автоматичний перезапуск моніторингу")
+                log_message("Автоматичний перезапуск")
                 stop_monitoring()
                 time.sleep(2)
                 start_processing()
@@ -214,22 +333,26 @@ def refresh_data():
             time.sleep(5)
 
         except Exception as e:
-            log_message(f"Помилка при оновленні: {e}", "ERROR")
+            log_message(f"Помилка: {e}", "ERROR")
             time.sleep(10)
+
+    monitoring_active = False
 
 def start_processing():
     global monitoring_event, data_thread, monitoring_active
     if monitoring_active:
         log_message("Моніторинг вже активний")
         return
-    if not json_file or not audio_save_path or not firebase_url:
-        messagebox.showerror("Помилка", "Будь ласка, перевірте налаштування у конфігураційному файлі.")
+    if not json_file or not firebase_url:
+        messagebox.showerror("Помилка", "Будь ласка, налаштуйте підключення")
+        show_settings_window()
         return
+
     firebase_db = authenticate_with_firebase()
     if firebase_db:
         monitoring_event.set()
         data_thread = threading.Thread(target=refresh_data)
-        data_thread.daemon = True
+        data_thread.daemon = False  # Змінимо на не-daemon потік для кращого завершення
         data_thread.start()
         log_message("Моніторинг запущено")
 
@@ -243,39 +366,112 @@ def stop_monitoring():
     for button in flag_buttons:
         button.config(text="Сканування зупинено", state="disabled")
 
+def on_closing():
+    stop_monitoring()
+    if firebase_app:
+        try:
+            firebase_admin.delete_app(firebase_app)
+        except:
+            pass
+    root.destroy()
+    sys.exit(0)
+
 def create_gui():
-    global flag_buttons, data_thread, root
+    global flag_buttons, root
 
     root = tk.Tk()
-    root.title("Відображення даних з Firebase")
+    root.title("Моніторинг частот Firebase")
     root.geometry("500x500")
+    root.protocol("WM_DELETE_WINDOW", on_closing)
 
-    # Фрейм для кнопок керування
+    # Центрування
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f'+{x}+{y}')
+
+    # Меню
+    menubar = tk.Menu(root)
+
+    file_menu = tk.Menu(menubar, tearoff=0)
+    file_menu.add_command(label="Налаштування", command=show_settings_window)
+    file_menu.add_separator()
+    file_menu.add_command(label="Вийти", command=on_closing)
+    menubar.add_cascade(label="Файл", menu=file_menu)
+
+    help_menu = tk.Menu(menubar, tearoff=0)
+    help_menu.add_command(label="Про програму", command=lambda: messagebox.showinfo(
+        "Про програму",
+        "Моніторинг частот Firebase\nВерсія 1.0"
+    ))
+    menubar.add_cascade(label="Довідка", menu=help_menu)
+
+    root.config(menu=menubar)
+
+    # Керування
     control_frame = tk.Frame(root)
     control_frame.pack(pady=10)
 
-    start_button = tk.Button(control_frame, text="Запуск", command=start_processing)
+    start_button = tk.Button(
+        control_frame,
+        text="Запуск",
+        command=start_processing,
+        bg="#4CAF50",
+        fg="black",
+        width=10
+    )
     start_button.pack(side='left', padx=5)
 
-    stop_button = tk.Button(control_frame, text="Зупинити", command=stop_monitoring)
+    stop_button = tk.Button(
+        control_frame,
+        text="Зупинити",
+        command=stop_monitoring,
+        bg="#f44336",
+        fg="black",
+        width=10
+    )
     stop_button.pack(side='left', padx=5)
 
-    log_button = tk.Button(control_frame, text="Показати лог", command=toggle_log_window)
+    log_button = tk.Button(
+        control_frame,
+        text="Лог",
+        command=toggle_log_window,
+        width=10
+    )
     log_button.pack(side='left', padx=5)
 
-    # Фрейм для кнопок частот
+    # Частоти
     freq_frame = tk.Frame(root)
     freq_frame.pack(pady=10, fill='both', expand=True)
 
     flag_buttons = []
     for i in range(6):
-        flag_button = tk.Button(freq_frame, text=f"Частота {i+1}", width=25, height=2,
-                              command=lambda i=i: on_flag_button_click(i))
+        flag_button = tk.Button(
+            freq_frame,
+            text=f"Частота {i+1}",
+            width=30,
+            height=2,
+            command=lambda i=i: on_flag_button_click(i)
+        )
         flag_button.pack(pady=5)
         flag_buttons.append(flag_button)
+
+    # Статус
+    status_bar = tk.Label(
+        root,
+        text="Налаштуйте підключення до Firebase",
+        bd=1,
+        relief=tk.SUNKEN,
+        anchor=tk.W
+    )
+    status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    if not read_config():
+        status_bar.config(text="Потрібно налаштувати підключення")
 
     root.mainloop()
 
 if __name__ == "__main__":
-    read_config()
     create_gui()
