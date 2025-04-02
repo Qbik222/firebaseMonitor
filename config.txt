@@ -1,0 +1,3 @@
+json_file_path=/Users/yurii/projects/maks/firebasekey.json
+firebase_url=https://test-228f2.firebaseio.com/
+audio_save_path=/Users/yurii/projects/maks/audio
