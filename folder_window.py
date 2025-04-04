@@ -64,71 +64,56 @@ class FolderWindow:
     def update_frequencies(self, folder_data):
         """Update the display with new frequencies with detailed logging"""
         print(f"\n{'='*50}")
-        print(f"Оновлення даних для папки: {self.folder_name}")
-        print("Отримані дані (folder_data):")
-        print(f"Тип даних: {type(folder_data)}")
+        print(f"[Оновлення даних] Папка: {self.folder_name}")
         
-        # Детальний вивід вмісту folder_data
+        # Обробка різних типів вхідних даних
         if isinstance(folder_data, dict):
-            print("Вміст словника:")
-            for key, value in folder_data.items():
-                print(f"Ключ: {key}")
-                print(f"Тип значення: {type(value)}")
-                if isinstance(value, dict):
-                    print("Вміст запису:")
-                    for sub_key, sub_value in value.items():
-                        print(f"  {sub_key}: {sub_value} (тип: {type(sub_value)})")
-                else:
-                    print(f"Значення: {value}")
-        else:
-            print(f"Неочікуваний тип даних: {folder_data}")
-
-        # Отримуємо всі записи для цієї папки
-        try:
+            print("[Тип даних] Словник (dict)")
             entries = list(folder_data.values())
-            print(f"\nЗнайдено записів: {len(entries)}")
-            self.frequencies = entries[-6:]  # Беремо останні 6 записів
-            print(f"Відображаємо останні {len(self.frequencies)} записів")
-        except Exception as e:
-            print(f"Помилка обробки даних: {e}")
+        elif isinstance(folder_data, list):
+            print("[Тип даних] Список (list)")
+            entries = folder_data
+        else:
+            print(f"⚠ Невідомий тип даних: {type(folder_data)}")
             return
 
+        self.frequencies = entries[-6:]  # Беремо останні 6 записів
+        print(f"\n[Обробка] Знайдено записів: {len(entries)}")
+        print(f"Буде відображено: {len(self.frequencies)} записів")
+
         for i, freq_data in enumerate(self.frequencies):
-            print(f"\nОбробка комірки {i}:")
+            print(f"\n[Комірка {i}] Обробка:")
+            
             if not isinstance(freq_data, dict):
-                print(f"Невірний формат даних для комірки {i}: {freq_data}")
+                print(f"⚠ Невірний формат даних: {type(freq_data)}")
                 continue
 
-            freq = freq_data.get('name', '')
-            timestamp = freq_data.get('timestamp', 0)
+            # Отримання значень з безпечним доступом
+            freq = freq_data.get('name', freq_data.get('frequency', ''))
             original_freq = freq_data.get('original_name', '')
-
-            print(f"Дані комірки {i}:")
-            print(f"  name: {freq} (тип: {type(freq)})")
-            print(f"  original_name: {original_freq} (тип: {type(original_freq)})")
-            print(f"  timestamp: {timestamp} (тип: {type(timestamp)})")
+            timestamp = freq_data.get('timestamp', 0)
+            
+            print(f"├─ Назва: {freq}")
+            print(f"├─ Оригінальна назва: {original_freq}")
+            print(f"└─ Мітка часу: {timestamp}")
 
             # Конвертація часу
             time_str = ""
             if timestamp:
                 try:
-                    print(f"Спроба конвертувати timestamp: {timestamp}")
                     dt = datetime.fromtimestamp(timestamp)
                     time_str = dt.strftime("%H:%M")
-                    print(f"Конвертований час: {time_str}")
+                    print(f"  ├─ Конвертований час: {time_str}")
                 except Exception as e:
-                    print(f"Помилка конвертації часу: {e}")
-                    time_str = ""
+                    print(f"  ⚠ Помилка конвертації: {e}")
             
-            # Оновлення інтерфейсу
-            print(f"Встановлюємо значення для комірки {i}:")
-            print(f"  Назва: {freq}")
-            print(f"  Час: {time_str}")
+            # Оновлення UI
             self.cells[i]['freq_label'].config(text=freq)
             self.cells[i]['time_label'].config(text=time_str)
+            print(f"Встановлено: '{freq}' | '{time_str}'")
         
-        print(f"{'='*50}\n")
-    
+        print(f"{'='*50}")
+
     def _copy_to_clipboard(self, cell_index):
         """Copy frequency to clipboard and show status"""
         if cell_index < len(self.frequencies):
