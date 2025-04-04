@@ -1,0 +1,21 @@
+firebaseMonitor/
+│
+├── main.py                  # Головний файл програми
+├── config/
+│   ├── __init__.py
+│   ├── config_manager.py    # Робота з конфігурацією
+│   └── settings_window.py   # Вікно налаштувань
+├── firebase/
+│   ├── __init__.py
+│   └── firebase_manager.py  # Робота з Firebase
+├── gui/
+│   ├── __init__.py
+│   ├── main_window.py       # Головне вікно
+│   ├── folder_window.py     # Вікно папки з частотами
+│   └── log_window.py       # Вікно логу
+├── monitoring/
+│   ├── __init__.py
+│   └── monitor.py          # Логіка моніторингу
+└── utils/
+    ├── __init__.py
+    └── logger.py           # Логування
