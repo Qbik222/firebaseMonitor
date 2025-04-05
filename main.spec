@@ -3,10 +3,10 @@
 
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=['.', 'firebaseMonitor'],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[('app.ico', '.')],
+    hiddenimports=['config_manager', 'firebase_manager', 'log_window', 'logger', 'monitor', 'settings_window'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

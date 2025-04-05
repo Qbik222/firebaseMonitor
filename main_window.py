@@ -4,7 +4,7 @@ from config_manager import ConfigManager
 from settings_window import SettingsWindow
 from firebase_manager import FirebaseManager
 from monitor import Monitor
-from folder_window import FolderWindowManager
+from folder_window import FolderManager  # Changed from FolderWindowManager
 from log_window import LogWindow
 
 class MainApp:
@@ -13,33 +13,80 @@ class MainApp:
         self.config_manager = ConfigManager()
         self.firebase_manager = FirebaseManager(self.config_manager)
         self.monitor = Monitor(self)
-        self.folder_window_manager = FolderWindowManager(self)
+        self.folder_manager = FolderManager(self)  # Changed to FolderManager
         self.log_window = LogWindow(self)
         
         self._setup_main_window()
+        self._initialize_data()
 
     def _initialize_data(self):
         if self.config_manager.read_config():
             try:
                 data = self.firebase_manager.load_data()
-                self.folder_window_manager.update_all_folders(data)
+                self.folder_manager.update_all_folders(data)  # Updated to use folder_manager
                 self.status_bar.config(text="Підключено до Firebase")
             except Exception as e:
                 self.status_bar.config(text=f"Помилка: {str(e)}")
                 self.log_window.add_log(f"Помилка ініціалізації: {str(e)}")
-    
+
     def _setup_main_window(self):
         self.root.title("Моніторинг частот Firebase")
-        self.root.geometry("400x300")
+        self.root.geometry("800x600")
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        self._create_menu()
-        self._create_main_ui()
-        self._center_window()
+        # Main container with scroll
+        main_container = tk.Frame(self.root)
+        main_container.pack(fill=tk.BOTH, expand=True)
         
-        if not self.config_manager.read_config():
-            self.status_bar.config(text="Потрібно налаштувати підключення")
-    
+        # Top frame for controls
+        top_frame = tk.Frame(main_container)
+        top_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        self._create_menu()
+        self._create_main_ui(top_frame)
+        
+        # Status bar
+        self.status_bar = tk.Label(
+            self.root,
+            text="Налаштуйте підключення до Firebase",
+            bd=1,
+            relief=tk.SUNKEN,
+            anchor=tk.W
+        )
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def _create_main_ui(self, parent):
+        """Create UI in the top part"""
+        tk.Label(
+            parent,
+            text="Моніторинг частот Firebase",
+            font=('Arial', 14, 'bold')
+        ).pack(pady=(0, 20))
+        
+        # Control buttons
+        control_frame = tk.Frame(parent)
+        control_frame.pack(pady=10)
+        
+        tk.Button(
+            control_frame,
+            text="Запуск",
+            command=self.monitor.start,
+            bg="#4CAF50",
+            fg="black",
+            width=15,
+            height=2
+        ).pack(side=tk.LEFT, padx=10)
+        
+        tk.Button(
+            control_frame,
+            text="Зупинити",
+            command=self.monitor.stop,
+            bg="#f44336",
+            fg="black",
+            width=15,
+            height=2
+        ).pack(side=tk.LEFT, padx=10)
+
     def _create_menu(self):
         menubar = Menu(self.root)
         
@@ -61,51 +108,7 @@ class MainApp:
         menubar.add_cascade(label="Довідка", menu=help_menu)
         
         self.root.config(menu=menubar)
-    
-    def _create_main_ui(self):
-        main_frame = tk.Frame(self.root)
-        main_frame.pack(expand=True, fill='both', padx=20, pady=20)
-        
-        tk.Label(
-            main_frame,
-            text="Моніторинг частот Firebase",
-            font=('Arial', 14, 'bold')
-        ).pack(pady=(0, 20))
-        
-        # Control buttons
-        control_frame = tk.Frame(main_frame)
-        control_frame.pack(pady=10)
-        
-        tk.Button(
-            control_frame,
-            text="Запуск",
-            command=self.monitor.start,
-            bg="#4CAF50",
-            fg="black",
-            width=15,
-            height=2
-        ).pack(side='left', padx=10)
-        
-        tk.Button(
-            control_frame,
-            text="Зупинити",
-            command=self.monitor.stop,
-            bg="#f44336",
-            fg="black",
-            width=15,
-            height=2
-        ).pack(side='left', padx=10)
-        
-        # Status bar
-        self.status_bar = tk.Label(
-            self.root,
-            text="Налаштуйте підключення до Firebase",
-            bd=1,
-            relief=tk.SUNKEN,
-            anchor=tk.W
-        )
-        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-    
+
     def _center_window(self):
         self.root.update_idletasks()
         width = self.root.winfo_width()
@@ -121,13 +124,13 @@ class MainApp:
     def show_about(self):
         messagebox.showinfo(
             "Про програму",
-            "Моніторинг частот Firebase\nВерсія 1.0\n\nКожна папка у базі даних відкривається у окремому вікні."
+            "Моніторинг частот Firebase\nВерсія 1.0\n\nВсі частоти відображаються у головному вікні."
         )
     
     def on_closing(self):
         self.monitor.stop()
         self.firebase_manager.cleanup()
-        self.folder_window_manager.close_all()
+        self.folder_manager.close_all()  # Updated to use folder_manager
         self.root.destroy()
     
     def run(self):

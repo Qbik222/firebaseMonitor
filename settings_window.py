@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
@@ -90,9 +91,9 @@ class SettingsWindow:
         json_file = self.json_file_entry.get()
         firebase_url = self.firebase_url_entry.get()
 
-        if not firebase_url.startswith("https://") or not firebase_url.endswith(".firebaseio.com/"):
-            messagebox.showerror("Помилка", "Будь ласка, введіть коректний URL Firebase у форматі:\nhttps://ваш-проект.firebaseio.com/")
-            return
+        # if not firebase_url.startswith("https://") or not firebase_url.endswith(".firebaseio.com/"):
+        #     messagebox.showerror("Помилка", "Будь ласка, введіть коректний URL Firebase у форматі:\nhttps://ваш-проект.firebaseio.com/")
+        #     return
 
         if not os.path.exists(json_file):
             messagebox.showerror("Помилка", "Вказаний JSON файл не існує")

@@ -12,7 +12,7 @@ class Monitor:
         self.next_restart_time = None
         self.data_queue = queue.Queue()
         self.last_data = {}
-        self.interval = 5  # Інтервал оновлення в секундах
+        self.interval = 5  # Update interval in seconds
 
     def start(self):
         if self.is_active:
@@ -32,7 +32,7 @@ class Monitor:
             self.main_app.log_window.log("Помилка автентифікації Firebase", "ERROR")
             return
 
-        # Первинне завантаження даних
+        # Initial data load
         try:
             raw_data = self.main_app.firebase_manager.load_data()
             processed_data = self._process_firebase_data(raw_data)
@@ -48,7 +48,7 @@ class Monitor:
         self.thread.daemon = True
         self.thread.start()
         
-        # Запускаємо обробку оновлень в головному потоці
+        # Start processing updates in main thread
         self.main_app.root.after(100, self.process_updates)
         
         self.main_app.log_window.log("Моніторинг запущено", "INFO")
@@ -69,15 +69,16 @@ class Monitor:
         self.main_app.status_bar.config(text="Моніторинг зупинено")
 
     def _update_ui_on_stop(self):
-        """Оновлення інтерфейсу при зупинці"""
-        for window in self.main_app.folder_window_manager.windows.values():
-            for cell in window.cells:
-                cell['frame'].config(bg='white')
-                cell['freq_label'].config(text="--", bg="white")
-                cell['time_label'].config(text="Сканування зупинено", bg="white")
+        """Update UI when monitoring stops"""
+        if hasattr(self.main_app, 'folder_manager'):
+            for frame in self.main_app.folder_manager.frames.values():
+                for cell in frame.cells:
+                    cell['frame'].config(bg='white')
+                    cell['freq_label'].config(text="--", bg="white")
+                    cell['time_label'].config(text="Сканування зупинено", bg="white")
 
     def _process_firebase_data(self, raw_data):
-        """Обробка даних з Firebase у внутрішній формат"""
+        """Process Firebase data into internal format"""
         processed_data = {}
         
         if not raw_data or 'frequency' not in raw_data:
@@ -106,16 +107,19 @@ class Monitor:
                         "ERROR")
                     continue
             
-            # Сортування за timestamp (новіші перші) і обмеження до 6 записів
+            # Sort by timestamp (newest first) and limit to 2 entries
             frequencies.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
-            processed_data[folder_name] = frequencies[:6]
+            processed_data[folder_name] = frequencies[:2]
             
         return processed_data
 
     def _update_all_folders(self, processed_data):
-        """Оновлення всіх вікон папок"""
+        """Update all folder displays"""
+        if not hasattr(self.main_app, 'folder_manager'):
+            return
+            
         for folder_name, frequencies in processed_data.items():
-            self.main_app.folder_window_manager.update_folder(
+            self.main_app.folder_manager.update_folder(
                 folder_name, 
                 [{'name': f['name'], 
                   'timestamp': f['timestamp'],
@@ -124,15 +128,15 @@ class Monitor:
             )
 
     def _monitor_loop(self):
-        """Основний цикл моніторингу"""
+        """Main monitoring loop"""
         while self.event.is_set():
             try:
-                # Перевірка часу перезапуску
+                # Check restart time
                 if datetime.now() >= self.next_restart_time:
                     self.data_queue.put(('restart', None))
                     break
                 
-                # Отримання даних
+                # Get data
                 raw_data = self.main_app.firebase_manager.load_data()
                 processed_data = self._process_firebase_data(raw_data)
                 
@@ -141,7 +145,7 @@ class Monitor:
                     time.sleep(self.interval)
                     continue
                 
-                # Визначення оновлених папок
+                # Detect updated folders
                 updated_folders = []
                 for folder_name, frequencies in processed_data.items():
                     if (folder_name not in self.last_data or 
@@ -161,7 +165,7 @@ class Monitor:
                 time.sleep(10)
 
     def process_updates(self):
-        """Обробка оновлень у головному потоці"""
+        """Process updates in main thread"""
         try:
             while not self.data_queue.empty():
                 action, data = self.data_queue.get_nowait()
@@ -177,4 +181,5 @@ class Monitor:
         except queue.Empty:
             pass
             
-        self.main_app.root.after(100, self.process_updates)
+        if self.is_active:
+            self.main_app.root.after(100, self.process_updates)

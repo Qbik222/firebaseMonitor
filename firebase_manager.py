@@ -8,7 +8,8 @@ class FirebaseManager:
     def __init__(self, config_manager):
         self.config_manager = config_manager
         self.firebase_app = None
-        self.log_file = "firebase_queries.log"  # Файл для зберігання логів
+        self.log_file = "firebase_queries.log"
+        self.db = None  # Посилання на модуль db
 
     def _log(self, action, details):
         """Логування дій у файл та консоль"""
@@ -22,16 +23,25 @@ class FirebaseManager:
             f.write(log_entry)
 
     def authenticate(self):
+        """Автентифікація у Firebase"""
         try:
-            if self.firebase_app is None:
+            if not firebase_admin._apps:  # Перевіряємо, чи не ініціалізовано
                 self._log("AUTH", f"Спроба підключення з файлом {self.config_manager.json_file}")
+                
+                # Ініціалізація з обліковими даними
                 cred = credentials.Certificate(self.config_manager.json_file)
                 self.firebase_app = firebase_admin.initialize_app(
                     cred, 
                     {'databaseURL': self.config_manager.firebase_url}
                 )
+                self.db = db  # Встановлюємо посилання на db після ініціалізації
                 self._log("AUTH", "Успішна автентифікація")
-            return db
+            else:
+                self.firebase_app = firebase_admin.get_app()
+                self.db = db
+                self._log("AUTH", "Використовується існуюче з'єднання")
+                
+            return self.db
         except Exception as e:
             error_msg = f"Помилка автентифікації: {str(e)}"
             self._log("AUTH_ERROR", error_msg)
@@ -39,11 +49,17 @@ class FirebaseManager:
             return None
 
     def load_data(self):
+        """Завантаження даних з Firebase (з автоматичною автентифікацією)"""
+        if not self.db:
+            # Якщо не автентифіковані - спробуємо автентифікуватися
+            if not self.authenticate():
+                return {}
+
         try:
             self._log("QUERY", "Початок завантаження даних з кореня бази")
             start_time = datetime.now()
             
-            ref = db.reference('/')
+            ref = self.db.reference('/')
             data = ref.get()
             
             duration = (datetime.now() - start_time).total_seconds()
@@ -79,10 +95,13 @@ class FirebaseManager:
         return f"{type(data).__name__}({len(data)})"
 
     def cleanup(self):
+        """Очищення з'єднання з Firebase"""
         if self.firebase_app:
             try:
                 self._log("CLEANUP", "Спроба закриття з'єднання")
                 firebase_admin.delete_app(self.firebase_app)
+                self.firebase_app = None
+                self.db = None
                 self._log("CLEANUP", "З'єднання успішно закрите")
             except Exception as e:
                 self._log("CLEANUP_ERROR", f"Помилка закриття: {str(e)}")
