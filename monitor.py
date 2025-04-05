@@ -72,9 +72,9 @@ class Monitor:
         """Оновлення інтерфейсу при зупинці"""
         for window in self.main_app.folder_window_manager.windows.values():
             for cell in window.cells:
-                cell['frame'].config(bg='lightgray')
-                cell['freq_label'].config(text="--")
-                cell['time_label'].config(text="Сканування зупинено")
+                cell['frame'].config(bg='white')
+                cell['freq_label'].config(text="--", bg="white")
+                cell['time_label'].config(text="Сканування зупинено", bg="white")
 
     def _process_firebase_data(self, raw_data):
         """Обробка даних з Firebase у внутрішній формат"""
