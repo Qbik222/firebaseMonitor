@@ -88,7 +88,7 @@ class Monitor:
 
                     freq = {
                         'name': entry_data.get('name', ''),
-                        'original_name': entry_data.get('original_name', ''),
+                        'name': entry_data.get('name', ''),
                         'timestamp': entry_data.get('timestamp', time.time()),
                         'status': entry_data.get('status', 'unknown')
                     }
@@ -129,7 +129,7 @@ class Monitor:
             formatted_data[folder_name] = [
                 {
                     'frequency': f.get('name', ''),
-                    'original_name': f.get('original_name', ''),
+                    'name': f.get('name', ''),
                     'timestamp': f.get('timestamp', 0)
                 }
                 for f in frequencies
