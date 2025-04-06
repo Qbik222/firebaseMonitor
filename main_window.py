@@ -4,7 +4,7 @@ from config_manager import ConfigManager
 from settings_window import SettingsWindow
 from firebase_manager import FirebaseManager
 from monitor import Monitor
-from folder_window import FolderManager  # Changed from FolderWindowManager
+from folder_window import FolderManager
 from log_window import LogWindow
 
 class MainApp:
@@ -13,7 +13,7 @@ class MainApp:
         self.config_manager = ConfigManager()
         self.firebase_manager = FirebaseManager(self.config_manager)
         self.monitor = Monitor(self)
-        self.folder_manager = FolderManager(self)  # Changed to FolderManager
+        self.folder_manager = FolderManager(self)
         self.log_window = LogWindow(self)
         
         self._setup_main_window()
@@ -23,7 +23,7 @@ class MainApp:
         if self.config_manager.read_config():
             try:
                 data = self.firebase_manager.load_data()
-                self.folder_manager.update_all_folders(data)  # Updated to use folder_manager
+                self.folder_manager.update_all_folders(data)
                 self.status_bar.config(text="Підключено до Firebase")
             except Exception as e:
                 self.status_bar.config(text=f"Помилка: {str(e)}")
@@ -109,14 +109,6 @@ class MainApp:
         
         self.root.config(menu=menubar)
 
-    def _center_window(self):
-        self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
-        self.root.geometry(f'+{x}+{y}')
-    
     def show_settings(self):
         settings = SettingsWindow(self.root, self.config_manager)
         settings.show()
@@ -130,7 +122,7 @@ class MainApp:
     def on_closing(self):
         self.monitor.stop()
         self.firebase_manager.cleanup()
-        self.folder_manager.close_all()  # Updated to use folder_manager
+        self.folder_manager.close_all()
         self.root.destroy()
     
     def run(self):

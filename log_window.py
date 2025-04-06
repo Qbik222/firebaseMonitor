@@ -47,6 +47,10 @@ class LogWindow:
         if self.window and self.window.winfo_exists():
             self.window.destroy()
         self.is_visible = False
+
+    def add_log(self, message, level="INFO"):
+        self.log(message, level)
+
     
     def log(self, message, level="INFO"):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
