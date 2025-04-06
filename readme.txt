@@ -4,5 +4,4 @@
  python3 scriptName.py - запустити скрипт
  pip install -r requirements.txt - встановити залежності зі списку з requirements.txt
  pip freeze > requirements.txt  - створити список залежностей в файлі requirements.txt для того щоб правильно інсталювати проект ( юзай цю команду після того як додаєш нову бібліотеку в python)
- pyinstaller --onefile --windowed --icon=app.ico startMonitor.py - збілдити апку
-
+ python -m PyInstaller --onefile --windowed --icon=app.ico --add-data "app.ico;." -p . -p firebaseMonitor --hidden-import config_manager --hidden-import firebase_manager --hidden-import log_window --hidden-import logger --hidden-import monitor --hidden-import settings_window main.py - build app
