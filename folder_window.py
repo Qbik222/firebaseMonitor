@@ -76,6 +76,7 @@ class FolderFrame:
                 self._on_enter(cf, fl, tl))
             widget.bind("<Leave>", lambda e, cf=cell_frame, fl=freq_label, tl=time_label: 
                 self._on_leave(cf, fl, tl))
+            
 
     def _on_enter(self, cell_frame, freq_label, time_label):
         cell_frame.config(bg="lightgreen", cursor="hand2")
@@ -110,33 +111,59 @@ class FolderFrame:
         self.status_label.config(text=message)
         self.master.after(1500, lambda: self.status_label.config(text=""))
 
+    def _highlight_cell(self, i):
+        cell = self.cells[0]
+        cell['frame'].config(bg='green')
+        cell['freq_label'].config(bg='green')
+        cell['time_label'].config(bg='green')
+
+        def restore():
+            cell['frame'].config(bg='white')
+            cell['freq_label'].config(bg='white')
+            cell['time_label'].config(bg='white')
+
+        cell['frame'].after(2000, restore)
+
     def update_frequencies(self, folder_data):
         entries = list(folder_data.values()) if isinstance(folder_data, dict) else folder_data
         self.frequencies = entries[:self.NUM_CELLS] if entries else []
 
         for i, freq_data in enumerate(self.frequencies):
+            new_frequency = freq_data.get('frequency', freq_data.get('name', ''))
+            new_original_name = freq_data.get('original_name', '')
+            new_timestamp = freq_data.get('timestamp', 0)
+
+            # Перевірка, чи змінились дані
+            prev_data = self.cell_data.get(i, {})
+            is_new = (
+                new_frequency != prev_data.get('frequency') or
+                new_original_name != prev_data.get('original_name') or
+                new_timestamp != prev_data.get('timestamp')
+            )
+
+            # Оновлення cell_data
             self.cell_data[i] = {
-                'frequency': freq_data.get('frequency', freq_data.get('name', '')),
-                'original_name': freq_data.get('original_name', ''),
-                'timestamp': freq_data.get('timestamp', 0)
+                'frequency': new_frequency,
+                'original_name': new_original_name,
+                'timestamp': new_timestamp
             }
 
-            freq = self.cell_data[i]['original_name'] or self.cell_data[i]['frequency']
-            timestamp = self.cell_data[i]['timestamp']
-            time_str = datetime.fromtimestamp(timestamp).strftime("%H:%M") if timestamp else ""
+            # Відображення
+            freq = new_original_name or new_frequency
+            time_str = datetime.fromtimestamp(new_timestamp).strftime("%H:%M") if new_timestamp else ""
 
             self.cells[i]['freq_label'].config(text=freq)
             self.cells[i]['time_label'].config(text=time_str)
 
+            # Якщо нові дані — фарбуємо
+            if is_new:
+                self._highlight_cell(i)
+
+        # Очищення порожніх комірок
         for i in range(len(self.frequencies), self.NUM_CELLS):
             self.cell_data[i] = {'frequency': '', 'original_name': '', 'timestamp': 0}
             self.cells[i]['freq_label'].config(text="")
-            self.cells[i]['time_label'].config(text="")
-        
-        for i in range(len(self.frequencies), self.NUM_CELLS):
-            self.cell_data[i] = {'frequency': '', 'original_name': '', 'timestamp': 0}
-            self.cells[i]['freq_label'].config(text="")
-            self.cells[i]['time_label'].config(text="")
+            self.cells[i]['time_label'].config(text="") 
 
     def destroy(self):
         self.main_frame.destroy()
