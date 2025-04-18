@@ -12,7 +12,7 @@ class Monitor:
         self.next_restart_time = None
         self.data_queue = queue.Queue()
         self.last_data = {}
-        self.interval = 5  # Update interval in seconds
+        self.interval = 1  # Update interval in seconds
 
     def start(self):
         if self.is_active:
