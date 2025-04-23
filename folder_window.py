@@ -3,6 +3,7 @@ from datetime import datetime
 import pyperclip
 
 class FolderFrame:
+    
     def __init__(self, master, folder_name):
         self.master = master
         self.folder_name = folder_name
@@ -12,8 +13,9 @@ class FolderFrame:
         self.CELL_WIDTH = 150
         
         self.main_frame = tk.Frame(master, padx=10, pady=5, bd=2, relief=tk.GROOVE)
+        
         # self.main_frame.pack(side=tk.LEFT, fill=tk.X, padx=5, pady=5, anchor='nw')
-        self.main_frame.grid(sticky='w', padx=5, pady=5)
+        self.main_frame.grid(sticky='nsew', padx=5, pady=5)
 
         self._setup_ui()
 
@@ -174,23 +176,34 @@ class FolderManager:
         self.main_app = main_app
         self.frames = {}
         
+        # Створюємо контейнер з прокруткою
         self.container = tk.Frame(main_app.root)
-        self.container.pack(fill=tk.BOTH, expand=True)
+        self.container.grid(row=1, column=0, sticky="nsew")  # Використовуємо grid
         
+        # Canvas для прокрутки
         self.canvas = tk.Canvas(self.container)
         self.scrollbar = tk.Scrollbar(self.container, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = tk.Frame(self.canvas)
         
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        # Налаштування прокрутки
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        # Розміщення елементів прокрутки
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
         
+        # Налаштування ваги для розтягування
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
+        
+        # Обробка зміни розміру
         self.canvas.bind("<Configure>", self._handle_canvas_resize)
         self.last_width = 0
-
     def _handle_canvas_resize(self, event):
         if event.width == self.last_width:
             return
